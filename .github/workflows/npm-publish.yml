@@ -78,8 +78,8 @@ jobs:
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
-          if npm view "slopkick@${version}" version >/dev/null 2>&1; then
-            echo "slopkick@${version} is already published; skipping."
+          if npm view "pi-slopkick@${version}" version >/dev/null 2>&1; then
+            echo "pi-slopkick@${version} is already published; skipping."
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
           else
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
