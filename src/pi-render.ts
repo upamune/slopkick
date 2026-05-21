@@ -1,7 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import * as Diff from "diff";
 
 function resolveThemeModuleUrl(): string {
   const start = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +36,60 @@ function replaceTabs(text: string): string {
   return text.replace(/\t/g, "   ");
 }
 
+function tokenizeWords(text: string): string[] {
+  return text.match(/\s+|[^\s]+/gu) ?? [];
+}
+
+function diffWordTokens(oldContent: string, newContent: string): Array<{ value: string; added?: boolean; removed?: boolean }> {
+  const oldTokens = tokenizeWords(oldContent);
+  const newTokens = tokenizeWords(newContent);
+  const table = Array.from({ length: oldTokens.length + 1 }, () => new Uint16Array(newTokens.length + 1));
+
+  for (let oldIndex = oldTokens.length - 1; oldIndex >= 0; oldIndex -= 1) {
+    const current = table[oldIndex]!;
+    const next = table[oldIndex + 1]!;
+    for (let newIndex = newTokens.length - 1; newIndex >= 0; newIndex -= 1) {
+      current[newIndex] = oldTokens[oldIndex] === newTokens[newIndex]
+        ? next[newIndex + 1]! + 1
+        : Math.max(next[newIndex]!, current[newIndex + 1]!);
+    }
+  }
+
+  const parts: Array<{ value: string; added?: boolean; removed?: boolean }> = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  while (oldIndex < oldTokens.length && newIndex < newTokens.length) {
+    if (oldTokens[oldIndex] === newTokens[newIndex]) {
+      parts.push({ value: oldTokens[oldIndex]! });
+      oldIndex += 1;
+      newIndex += 1;
+      continue;
+    }
+
+    if (table[oldIndex + 1]![newIndex]! >= table[oldIndex]![newIndex + 1]!) {
+      parts.push({ value: oldTokens[oldIndex]!, removed: true });
+      oldIndex += 1;
+      continue;
+    }
+
+    parts.push({ value: newTokens[newIndex]!, added: true });
+    newIndex += 1;
+  }
+
+  while (oldIndex < oldTokens.length) {
+    parts.push({ value: oldTokens[oldIndex]!, removed: true });
+    oldIndex += 1;
+  }
+
+  while (newIndex < newTokens.length) {
+    parts.push({ value: newTokens[newIndex]!, added: true });
+    newIndex += 1;
+  }
+
+  return parts;
+}
+
 /**
  * Adapted from Pi's internal diff renderer so slopchop follows Pi's intra-line
  * diff highlighting behavior while still controlling its own gutters and
@@ -47,7 +100,7 @@ export function renderPiIntraLineDiff(
   newContent: string,
   inverse: (text: string) => string,
 ): { removedLine: string; addedLine: string } {
-  const wordDiff = Diff.diffWords(oldContent, newContent);
+  const wordDiff = diffWordTokens(oldContent, newContent);
 
   let removedLine = "";
   let addedLine = "";
