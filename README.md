@@ -48,12 +48,6 @@ Inside a git repo in Pi:
 /slopkick
 ```
 
-For compatibility with the upstream package, the legacy command also works:
-
-```text
-/slopchop
-```
-
 Or use the global shortcut:
 
 ```text
@@ -252,8 +246,6 @@ If you want to refine the templated text after applying it, press `e` on that li
 Optional user-level config file:
 
 - `~/.pi/agent/extensions/slopkick.json`
-
-For compatibility, slopkick will also read the legacy upstream path `~/.pi/agent/extensions/slopchop.json` when `slopkick.json` is not present.
 
 Example:
 

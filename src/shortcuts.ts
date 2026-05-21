@@ -39,7 +39,6 @@ export interface LoadedCommentShortcuts {
 }
 
 const CONFIG_FILE_NAME = "slopkick.json";
-const LEGACY_CONFIG_FILE_NAME = "slopchop.json";
 
 export const BUILTIN_COMMENT_SHORTCUTS: CommentShortcut[] = [
   { id: "explain-added", key: "e", label: "explain", intent: "discuss", side: "added", text: "Explain what this code is doing." },
@@ -155,16 +154,10 @@ export function getShortcutConfigPath(): string {
   return join(getAgentDir(), "extensions", CONFIG_FILE_NAME);
 }
 
-function getLegacyShortcutConfigPath(): string {
-  return join(getAgentDir(), "extensions", LEGACY_CONFIG_FILE_NAME);
-}
-
 export function loadCommentShortcuts(): LoadedCommentShortcuts {
-  const primaryPath = getShortcutConfigPath();
-  const legacyPath = getLegacyShortcutConfigPath();
-  const path = existsSync(primaryPath) ? primaryPath : legacyPath;
+  const path = getShortcutConfigPath();
   if (!existsSync(path)) {
-    return { shortcuts: BUILTIN_COMMENT_SHORTCUTS, warnings: [], path: primaryPath };
+    return { shortcuts: BUILTIN_COMMENT_SHORTCUTS, warnings: [], path };
   }
 
   try {

@@ -56,14 +56,6 @@ export default function slopReviewExtension(pi: ExtensionAPI) {
     },
   });
 
-  // Compatibility alias for existing Pi users of robzolkos/pi-slopchop.
-  pi.registerCommand("slopchop", {
-    description: "Review and annotate code changes (legacy alias for /slopkick)",
-    handler: async (_args, ctx) => {
-      await openReview(ctx);
-    },
-  });
-
   pi.registerShortcut("ctrl+alt+s", {
     description: "Open /slopkick",
     handler: async (ctx) => {
