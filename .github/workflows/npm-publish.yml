@@ -7,7 +7,15 @@ on:
   release:
     types:
       - published
+  workflow_run:
+    workflows:
+      - tagpr
+    types:
+      - completed
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: read
@@ -15,11 +23,15 @@ permissions:
 
 jobs:
   publish:
-    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -28,17 +40,67 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - name: Resolve publish target
+        id: publish-target
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_EVENT_NAME}" in
+            push)
+              tag="${GITHUB_REF_NAME}"
+              ;;
+            release)
+              tag="${{ github.event.release.tag_name }}"
+              ;;
+            workflow_run|workflow_dispatch)
+              version="$(node -p "require('./package.json').version")"
+              tag="v${version}"
+              git fetch --force --tags origin
+              if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+                echo "Tag ${tag} does not exist yet; skipping publish."
+                echo "should_publish=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              ;;
+            *)
+              echo "Unsupported event: ${GITHUB_EVENT_NAME}" >&2
+              exit 1
+              ;;
+          esac
+
+          version="${tag#v}"
+          if [ "${tag}" = "${version}" ]; then
+            echo "Tag ${tag} does not use v-prefix; skipping publish."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+          if npm view "slopkick@${version}" version >/dev/null 2>&1; then
+            echo "slopkick@${version} is already published; skipping."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
+        if: steps.publish-target.outputs.should_publish == 'true'
         run: npm ci
 
       - name: Typecheck
+        if: steps.publish-target.outputs.should_publish == 'true'
         run: npm run typecheck
 
       - name: Test
+        if: steps.publish-target.outputs.should_publish == 'true'
         run: npm test
 
       - name: Verify package contents
+        if: steps.publish-target.outputs.should_publish == 'true'
         run: npm pack --dry-run
 
       - name: Publish to npm
+        if: steps.publish-target.outputs.should_publish == 'true'
         run: npm publish --provenance --access public
