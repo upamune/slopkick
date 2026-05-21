@@ -1,0 +1,7 @@
+[tagpr]
+vPrefix = true
+releaseBranch = "main"
+packageManager = "npm"
+
+[github]
+release = true
